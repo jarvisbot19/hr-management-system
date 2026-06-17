@@ -30,6 +30,24 @@ if [ -n "$RENDER_EXTERNAL_URL" ]; then
     export ASSET_URL="$RENDER_EXTERNAL_URL"
 fi
 
+# Sync the real runtime config (injected by docker-compose / the platform) INTO
+# the .env file. `php artisan serve` answers web requests using the .env file, so
+# any value the platform overrides — most importantly a custom DB_PASSWORD — must
+# be written here, or a stale value in .env wins and you get
+# "password authentication failed for user ...". Values here have no '|' so the
+# sed delimiter is safe.
+for k in APP_ENV APP_DEBUG APP_URL ASSET_URL \
+         DB_CONNECTION DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD \
+         MAIL_MAILER; do
+    v="$(printenv "$k" 2>/dev/null || true)"
+    [ -z "$v" ] && continue
+    if grep -q "^${k}=" .env; then
+        sed -i "s|^${k}=.*|${k}=${v}|" .env
+    else
+        printf '%s=%s\n' "$k" "$v" >> .env
+    fi
+done
+
 # Generate APP_KEY only if one isn't already set (fixes the
 # "No application encryption key has been specified" error).
 # key:generate REPLACES an existing APP_KEY= line, so make sure one exists first.
