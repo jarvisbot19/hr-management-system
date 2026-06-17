@@ -1,0 +1,44 @@
+# Deploy to Render.com straight from GitHub — no terminal, no server to manage.
+# Render reads this file, creates a PostgreSQL database + the web app (from the
+# Dockerfile), wires them together, and gives you a public https URL.
+#
+# How to use (all in the browser):
+#   1. Sign up at https://render.com  (log in with GitHub)
+#   2. Dashboard -> New + -> Blueprint
+#   3. Pick this repository -> Apply
+#   4. Wait for the build, then open the https URL Render shows.
+#      Log in:  super@root.com / password   (change it immediately)
+databases:
+  - name: hr-db
+    databaseName: employees_management
+    user: hr
+    plan: free            # free PostgreSQL (expires after 90 days; upgrade to keep)
+
+services:
+  - type: web
+    name: hr-tool
+    runtime: docker
+    plan: free             # free web instance (sleeps after ~15 min idle, wakes on visit)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /login
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      # Mail goes to the log (no separate mail server). Configure real SMTP later.
+      - key: MAIL_MAILER
+        value: log
+      # Database connection is filled in automatically from the hr-db database above.
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase: { name: hr-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: hr-db, property: port }
+      - key: DB_DATABASE
+        fromDatabase: { name: hr-db, property: database }
+      - key: DB_USERNAME
+        fromDatabase: { name: hr-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: hr-db, property: password }

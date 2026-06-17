@@ -23,6 +23,13 @@ if [ ! -f .env ]; then
     cp docker/app.env .env
 fi
 
+# On Render.com (always HTTPS behind a proxy) point app/asset URLs at the public
+# HTTPS URL so assets aren't blocked as mixed content. No effect elsewhere.
+if [ -n "$RENDER_EXTERNAL_URL" ]; then
+    export APP_URL="$RENDER_EXTERNAL_URL"
+    export ASSET_URL="$RENDER_EXTERNAL_URL"
+fi
+
 # Generate APP_KEY only if one isn't already set (fixes the
 # "No application encryption key has been specified" error).
 if ! grep -q '^APP_KEY=base64:' .env; then
@@ -50,13 +57,17 @@ fi
 
 chmod -R ug+rw storage bootstrap/cache 2>/dev/null || true
 
+# Listen on the platform-provided port if there is one (Render/App Platform set
+# $PORT); otherwise default to 8000 (local / Droplet via docker-compose).
+SERVE_PORT="${PORT:-8000}"
+
 echo ""
 echo "=================================================================="
-echo "  HR TOOL IS READY  ->  http://localhost:8000"
-echo "  Log in with:   super@root.com   /   password"
-echo "  Sent emails:   http://localhost:8025   (Mailpit inbox)"
+echo "  HR TOOL IS READY  (serving on port ${SERVE_PORT})"
+echo "  Local:   http://localhost:${SERVE_PORT}"
+echo "  Log in:  super@root.com  /  password   (change it after first login)"
 echo "=================================================================="
 echo ""
 
-# --host=0.0.0.0 is mandatory so the port is reachable from the host machine.
-exec php artisan serve --host=0.0.0.0 --port=8000
+# --host=0.0.0.0 is mandatory so the port is reachable from outside the container.
+exec php artisan serve --host=0.0.0.0 --port="$SERVE_PORT"
